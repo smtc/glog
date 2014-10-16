@@ -45,11 +45,12 @@ type outputer struct {
 // the Writer's Write method.  A Logger can be used simultaneously from
 // multiple goroutines; it guarantees to serialize access to the Writer.
 type Logger struct {
-	mu    sync.Mutex // ensures atomic writes; protects the following fields
-	flag  int        // properties
-	out   outputer   // destination for output
-	buf   []byte     // for accumulating text to write
-	items int64
+	mu     sync.Mutex // ensures atomic writes; protects the following fields
+	flag   int        // properties
+	out    outputer   // destination for output
+	buf    []byte     // for accumulating text to write
+	items  int64
+	nbytes int64
 }
 
 // Cheap integer to fixed-width decimal ASCII.  Give a negative width to avoid zero-padding.
