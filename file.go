@@ -16,6 +16,10 @@ type fileLogger struct {
 	Logger
 	dir    string
 	format string // file suffix, such as "{{program}}-{{host}}-{{username}}-{{yyyy}}{{mm}}{{dd}}-{{HH}}{{MM}}{{SS}}-{{pid}}"
+
+	rtSeconds int64
+	rtItems   int64
+	rtNbytes  int64
 }
 
 var (
@@ -99,7 +103,11 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 		},
 		dir,
 		fnSuffix,
+		goutils.ToInt64(options["seconds"], 86400),
+		goutils.ToInt64(options["items"], 0),
+		goutils.ToInt64(options["nbytes"], 0),
 	}
+
 	err = fl.buildFileOut(prefix)
 	if err != nil {
 		panic(err)
@@ -161,5 +169,22 @@ func formatSuffix(format string) (res string) {
 // 2014-10-17 guotie
 // TODO: rotate file logs
 func (fl *fileLogger) rotate() {
+	tm := time.Now().Unix()
+	left := fl.rtSeconds - tm%fl.rtSeconds
 
+	time.AfterFunc(time.Duration(left)*time.Second, func() {
+		wr, err := fl.openLogFiles()
+		if err != nil {
+			fl.Error("rotate log files failed: %v\n", err)
+			return
+		}
+		fl.mu.Lock()
+		owr := fl.out.out
+		fl.out.out = wr
+		fl.mu.Unlock()
+		for _, r := range owr {
+			f := r.(*os.File)
+			f.Close()
+		}
+	})
 }

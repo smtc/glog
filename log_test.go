@@ -1,7 +1,7 @@
 package glog
 
 import (
-	"os"
+	//"os"
 	"testing"
 )
 
@@ -29,8 +29,4 @@ func TestFileLog(t *testing.T) {
 	Info("modify info log prefix to %s\n", Prefix(InfoLevel))
 	Info("no new line")
 	Info("new prefix info log\n")
-
-	if err := os.Remove("./logs"); err != nil {
-		t.Fatal(err)
-	}
 }
