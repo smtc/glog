@@ -3,8 +3,10 @@ package glog
 import (
 	"fmt"
 	"github.com/smtc/goutils"
+	"io"
 	"os"
 	"os/user"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -21,6 +23,15 @@ var (
 	program  = filepath.Base(os.Args[0])
 	host     = "unknownhost"
 	userName = "unknownuser"
+
+	prefixFn = map[int]string{
+		DebugLevel: "DEBUG",
+		InfoLevel:  "INFO",
+		WarnLevel:  "WARN",
+		ErrorLevel: "ERROR",
+		FatalLevel: "FATAL",
+		PanicLevel: "PANIC",
+	}
 )
 
 func init() {
@@ -66,18 +77,20 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 	if flag, ok = options["flag"].(int); !ok {
 		flag = 0
 	}
+
+	// 使用不同文件来记录不同等级的log，不需要加前缀
 	if prefix, ok = options["prefix"].(map[int]string); !ok {
-		prefix = map[int]string{
-			DebugLevel: "DEBUG",
-			InfoLevel:  "INFO",
-			WarnLevel:  "WARN",
-			ErrorLevel: "ERROR",
-			FatalLevel: "FATAL",
-			PanicLevel: "PANIC",
-		}
+		prefix = nil
 	}
+
 	if fnSuffix, ok = options["suffix"].(string); !ok {
 		fnSuffix = "-{{yyyy}}{{mm}}{{dd}}-{{HH}}{{MM}}{{SS}}-{{pid}}.log"
+	}
+
+	if dir, ok = options["dir"].(string); !ok {
+		dir = "./logs"
+	} else if dir == "" {
+		dir = "./"
 	}
 
 	fl := &fileLogger{
@@ -100,10 +113,28 @@ func (fl *fileLogger) buildFileOut(prefix map[int]string) (err error) {
 		return
 	}
 
+	// avoid panic on nil map
+	if fl.out.prefix = prefix; prefix == nil {
+		fl.out.prefix = make(map[int]string)
+	}
+
+	fl.out.out, err = fl.openLogFiles()
 	return
 }
 
-func (fl *fileLogger) openLogFile() (err error) {
+func (fl *fileLogger) openLogFiles() (wr map[int]io.Writer, err error) {
+	var f *os.File
+
+	suffix := formatSuffix(fl.format)
+	wr = make(map[int]io.Writer)
+
+	for i := DebugLevel; i < LevelCount; i++ {
+		if f, err = os.OpenFile(path.Join(fl.dir, prefixFn[i]+suffix), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666); err != nil {
+			return
+		}
+		wr[i] = f
+	}
+
 	return
 }
 
@@ -125,4 +156,10 @@ func formatSuffix(format string) (res string) {
 	res = strings.Replace(res, "{{pid}}", fmt.Sprint(pid), -1)
 
 	return
+}
+
+// 2014-10-17 guotie
+// TODO: rotate file logs
+func (fl *fileLogger) rotate() {
+
 }

@@ -147,7 +147,9 @@ func (l *Logger) Output(lv int, calldepth int, s string) error {
 		l.buf = append(l.buf, '\n')
 	}
 	l.items++
-	_, err := l.out.Write(lv, l.buf)
+	n, err := l.out.Write(lv, l.buf)
+	l.nbytes += int64(n)
+
 	return err
 }
 

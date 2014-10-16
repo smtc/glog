@@ -17,6 +17,7 @@ const (
 	ErrorLevel
 	FatalLevel
 	PanicLevel
+	LevelCount
 )
 
 var (
