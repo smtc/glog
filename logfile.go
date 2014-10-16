@@ -1,20 +1,29 @@
 package glog
 
-type logfile struct {
+import (
+//	"time"
+)
+
+type fileLogger struct {
 	Dir string
 }
 
-func (l *logfile) Debug(s string, data ...interface{}) {
+func createFileLogger(options map[string]interface{}) *fileLogger {
+	fl := fileLogger{}
+	return &fl
 }
 
-func (l *logfile) Info(s string, data ...interface{}) {
+func (l *fileLogger) Debug(s string, data ...interface{}) {
 }
 
-func (l *logfile) Warn(s string, data ...interface{}) {
+func (l *fileLogger) Info(s string, data ...interface{}) {
 }
 
-func (l *logfile) Error(s string, data ...interface{}) {
+func (l *fileLogger) Warn(s string, data ...interface{}) {
 }
 
-func (l *logfile) Fatal(s string, data ...interface{}) {
+func (l *fileLogger) Error(s string, data ...interface{}) {
+}
+
+func (l *fileLogger) Fatal(s string, data ...interface{}) {
 }
