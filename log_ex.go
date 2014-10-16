@@ -35,27 +35,22 @@ const (
 	LstdFlags     = Ldate | Ltime // initial values for the standard logger
 )
 
+type outputer struct {
+	prefix map[int]string
+	out    map[int]io.Writer
+}
+
 // A Logger represents an active logging object that generates lines of
 // output to an io.Writer.  Each logging operation makes a single call to
 // the Writer's Write method.  A Logger can be used simultaneously from
 // multiple goroutines; it guarantees to serialize access to the Writer.
 type Logger struct {
-	mu     sync.Mutex // ensures atomic writes; protects the following fields
-	prefix string     // prefix to write at beginning of each line
-	flag   int        // properties
-	out    io.Writer  // destination for output
-	buf    []byte     // for accumulating text to write
+	mu    sync.Mutex // ensures atomic writes; protects the following fields
+	flag  int        // properties
+	out   outputer   // destination for output
+	buf   []byte     // for accumulating text to write
+	items int64
 }
-
-// New creates a new Logger.   The out variable sets the
-// destination to which log data will be written.
-// The prefix appears at the beginning of each generated log line.
-// The flag argument defines the logging properties.
-func New(out io.Writer, prefix string, flag int) *Logger {
-	return &Logger{out: out, prefix: prefix, flag: flag}
-}
-
-var std = New(os.Stderr, "", LstdFlags)
 
 // Cheap integer to fixed-width decimal ASCII.  Give a negative width to avoid zero-padding.
 // Knows the buffer has capacity.
@@ -77,8 +72,8 @@ func itoa(buf *[]byte, i int, wid int) {
 	*buf = append(*buf, b[bp:]...)
 }
 
-func (l *Logger) formatHeader(buf *[]byte, t time.Time, file string, line int) {
-	*buf = append(*buf, l.prefix...)
+func (l *Logger) formatHeader(lv int, buf *[]byte, t time.Time, file string, line int) {
+	*buf = append(*buf, l.out.prefix[lv]...)
 	if l.flag&(Ldate|Ltime|Lmicroseconds) != 0 {
 		if l.flag&Ldate != 0 {
 			year, month, day := t.Date()
@@ -127,7 +122,7 @@ func (l *Logger) formatHeader(buf *[]byte, t time.Time, file string, line int) {
 // already a newline.  Calldepth is used to recover the PC and is
 // provided for generality, although at the moment on all pre-defined
 // paths it will be 2.
-func (l *Logger) Output(calldepth int, s string) error {
+func (l *Logger) Output(lv int, calldepth int, s string) error {
 	now := time.Now() // get this early.
 	var file string
 	var line int
@@ -145,65 +140,44 @@ func (l *Logger) Output(calldepth int, s string) error {
 		l.mu.Lock()
 	}
 	l.buf = l.buf[:0]
-	l.formatHeader(&l.buf, now, file, line)
+	l.formatHeader(lv, &l.buf, now, file, line)
 	l.buf = append(l.buf, s...)
 	if len(s) > 0 && s[len(s)-1] != '\n' {
 		l.buf = append(l.buf, '\n')
 	}
-	_, err := l.out.Write(l.buf)
+	l.items++
+	_, err := l.out.Write(lv, l.buf)
 	return err
 }
 
 // Printf calls l.Output to print to the logger.
 // Arguments are handled in the manner of fmt.Printf.
-func (l *Logger) Printf(format string, v ...interface{}) {
-	l.Output(2, fmt.Sprintf(format, v...))
+func (l *Logger) Debug(format string, v ...interface{}) {
+	l.Output(DebugLevel, 2, fmt.Sprintf(format, v...))
 }
 
-// Print calls l.Output to print to the logger.
-// Arguments are handled in the manner of fmt.Print.
-func (l *Logger) Print(v ...interface{}) { l.Output(2, fmt.Sprint(v...)) }
+func (l *Logger) Info(format string, v ...interface{}) {
+	l.Output(InfoLevel, 2, fmt.Sprintf(format, v...))
+}
 
-// Println calls l.Output to print to the logger.
-// Arguments are handled in the manner of fmt.Println.
-func (l *Logger) Println(v ...interface{}) { l.Output(2, fmt.Sprintln(v...)) }
+func (l *Logger) Warn(format string, v ...interface{}) {
+	l.Output(WarnLevel, 2, fmt.Sprintf(format, v...))
+}
+
+func (l *Logger) Error(format string, v ...interface{}) {
+	l.Output(ErrorLevel, 2, fmt.Sprintf(format, v...))
+}
 
 // Fatal is equivalent to l.Print() followed by a call to os.Exit(1).
-func (l *Logger) Fatal(v ...interface{}) {
-	l.Output(2, fmt.Sprint(v...))
+func (l *Logger) Fatal(format string, v ...interface{}) {
+	l.Output(FatalLevel, 2, fmt.Sprintf(format, v...))
 	os.Exit(1)
-}
-
-// Fatalf is equivalent to l.Printf() followed by a call to os.Exit(1).
-func (l *Logger) Fatalf(format string, v ...interface{}) {
-	l.Output(2, fmt.Sprintf(format, v...))
-	os.Exit(1)
-}
-
-// Fatalln is equivalent to l.Println() followed by a call to os.Exit(1).
-func (l *Logger) Fatalln(v ...interface{}) {
-	l.Output(2, fmt.Sprintln(v...))
-	os.Exit(1)
-}
-
-// Panic is equivalent to l.Print() followed by a call to panic().
-func (l *Logger) Panic(v ...interface{}) {
-	s := fmt.Sprint(v...)
-	l.Output(2, s)
-	panic(s)
 }
 
 // Panicf is equivalent to l.Printf() followed by a call to panic().
-func (l *Logger) Panicf(format string, v ...interface{}) {
+func (l *Logger) Panic(format string, v ...interface{}) {
 	s := fmt.Sprintf(format, v...)
-	l.Output(2, s)
-	panic(s)
-}
-
-// Panicln is equivalent to l.Println() followed by a call to panic().
-func (l *Logger) Panicln(v ...interface{}) {
-	s := fmt.Sprintln(v...)
-	l.Output(2, s)
+	l.Output(PanicLevel, 2, s)
 	panic(s)
 }
 
@@ -222,15 +196,23 @@ func (l *Logger) SetFlags(flag int) {
 }
 
 // Prefix returns the output prefix for the logger.
-func (l *Logger) Prefix() string {
+func (l *Logger) Prefix(lv int) string {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return l.prefix
+	return l.out.prefix[lv]
 }
 
 // SetPrefix sets the output prefix for the logger.
-func (l *Logger) SetPrefix(prefix string) {
+func (l *Logger) SetPrefix(lv int, prefix string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.prefix = prefix
+	l.out.prefix[lv] = prefix
+}
+
+func (o outputer) Write(lv int, buf []byte) (int, error) {
+	wr, ok := o.out[lv]
+	if !ok {
+		return 0, fmt.Errorf("No writer for level %d", lv)
+	}
+	return wr.Write(buf)
 }
