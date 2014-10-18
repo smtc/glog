@@ -17,10 +17,13 @@ type fileLogger struct {
 	dir    string
 	format string // file suffix, such as "{{program}}-{{host}}-{{username}}-{{yyyy}}{{mm}}{{dd}}-{{HH}}{{MM}}{{SS}}-{{pid}}"
 
-	tmr       *time.Timer
 	rtSeconds int64
 	rtItems   int64
 	rtNbytes  int64
+
+	rotDuration time.Duration
+	rot         chan struct{}
+	exist       chan struct{}
 }
 
 var (
@@ -107,6 +110,9 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 		goutils.ToInt64(options["seconds"], 86400),
 		goutils.ToInt64(options["items"], 0),
 		goutils.ToInt64(options["nbytes"], 0),
+		0,
+		make(chan struct{}),
+		make(chan struct{}),
 	}
 
 	err = fl.buildFileOut(prefix)
@@ -173,21 +179,40 @@ func (fl *fileLogger) rotate() {
 	tm := time.Now().Unix()
 	left := fl.rtSeconds - tm%fl.rtSeconds
 
-	fl.tmr = time.NewTimer(time.Duration(left)*time.Second)
-	
-	time.AfterFunc(, func() {
-		wr, err := fl.openLogFiles()
-		if err != nil {
-			fl.Error("rotate log files failed: %v\n", err)
-			return
-		}
-		fl.mu.Lock()
-		owr := fl.out.out
-		fl.out.out = wr
-		fl.mu.Unlock()
-		for _, r := range owr {
-			f := r.(*os.File)
-			f.Close()
-		}
+	time.AfterFunc(time.Duration(left)*time.Second, func() {
+		fl.rot <- struct{}{}
 	})
+
+	go func() {
+		for {
+			select {
+			case <-fl.rot:
+				wr, err := fl.openLogFiles()
+				if err != nil {
+					fl.Error("rotate log files failed: %v\n", err)
+				} else {
+					fl.mu.Lock()
+					owr := fl.out.out
+					fl.out.out = wr
+					fl.mu.Unlock()
+
+					fl.closeLogFiles(owr.(map[string]*os.File))
+				}
+
+				tm := time.Now().Unix()
+				left := fl.rtSeconds - tm%fl.rtSeconds
+				time.AfterFunc(time.Duration(left)*time.Second, func() {
+					fl.rot <- struct{}{}
+				})
+			case <-fl.exist:
+				return
+			}
+		}
+	}()
+}
+
+func (fl *fileLogger) closeLogFiles(fs map[string]*os.File) {
+	for _, f := range fs {
+		f.Close()
+	}
 }
