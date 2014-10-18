@@ -37,6 +37,7 @@ type logger interface {
 	SetPrefix(lv int, prefix string)
 	Flags() int
 	SetFlags(flag int)
+	Close()
 }
 
 func InitLogger(level logType, options map[string]interface{}) {
@@ -108,6 +109,10 @@ func Panic(format string, v ...interface{}) {
 	_logger.Panic(format, v...)
 }
 
+func Close() {
+	_logger.Close()
+}
+
 // 为了简单，这里修改prefix时就不加锁了
 type console struct {
 	prefixes map[int]string
@@ -151,4 +156,7 @@ func (c console) Fatal(format string, v ...interface{}) {
 
 func (c console) Panic(format string, v ...interface{}) {
 	log.Panicf(c.prefixes[PanicLevel]+" "+format, v...)
+}
+
+func (c console) Close() {
 }
