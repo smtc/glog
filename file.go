@@ -17,6 +17,7 @@ type fileLogger struct {
 	dir    string
 	format string // file suffix, such as "{{program}}-{{host}}-{{username}}-{{yyyy}}{{mm}}{{dd}}-{{HH}}{{MM}}{{SS}}-{{pid}}"
 
+	tmr       *time.Timer
 	rtSeconds int64
 	rtItems   int64
 	rtNbytes  int64
@@ -172,7 +173,9 @@ func (fl *fileLogger) rotate() {
 	tm := time.Now().Unix()
 	left := fl.rtSeconds - tm%fl.rtSeconds
 
-	time.AfterFunc(time.Duration(left)*time.Second, func() {
+	fl.tmr = time.NewTimer(time.Duration(left)*time.Second)
+	
+	time.AfterFunc(, func() {
 		wr, err := fl.openLogFiles()
 		if err != nil {
 			fl.Error("rotate log files failed: %v\n", err)
