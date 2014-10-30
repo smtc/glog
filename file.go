@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/smtc/goutils"
 	"io"
+	"log"
 	"os"
 	"os/user"
 	"path"
@@ -20,7 +21,17 @@ type fileLogger struct {
 	rtSeconds int64
 	rtItems   int64
 	rtNbytes  int64
+	sequence  int
+
+	rotDuration time.Duration
+	rot         chan struct{}
+	exist       chan struct{}
 }
+
+const (
+	HourlyDuration = (time.Duration(3600) * time.Second)
+	DailyDuration  = (time.Duration(86400) * time.Second)
+)
 
 var (
 	pid      = os.Getpid()
@@ -88,7 +99,7 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 	}
 
 	if fnSuffix, ok = options["suffix"].(string); !ok {
-		fnSuffix = "-{{yyyy}}{{mm}}{{dd}}-{{HH}}{{MM}}{{SS}}-{{pid}}.log"
+		fnSuffix = "-{{yyyy}}{{mm}}{{dd}}-{{HH}}{{MM}}{{SS}}-{{pid}}"
 	}
 
 	if dir, ok = options["dir"].(string); !ok {
@@ -106,6 +117,10 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 		goutils.ToInt64(options["seconds"], 86400),
 		goutils.ToInt64(options["items"], 0),
 		goutils.ToInt64(options["nbytes"], 0),
+		0, // sequence
+		0,
+		make(chan struct{}),
+		make(chan struct{}),
 	}
 
 	err = fl.buildFileOut(prefix)
@@ -113,6 +128,7 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 		panic(err)
 	}
 
+	fl.rotate()
 	return fl
 }
 
@@ -137,7 +153,7 @@ func (fl *fileLogger) openLogFiles() (wr map[int]io.WriteCloser, err error) {
 	wr = make(map[int]io.WriteCloser)
 
 	for i := DebugLevel; i < LevelCount; i++ {
-		if f, err = os.OpenFile(path.Join(fl.dir, prefixFn[i]+suffix), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666); err != nil {
+		if f, err = os.OpenFile(path.Join(fl.dir, prefixFn[i]+suffix+".tmp"), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666); err != nil {
 			return
 		}
 		wr[i] = f
@@ -173,18 +189,59 @@ func (fl *fileLogger) rotate() {
 	left := fl.rtSeconds - tm%fl.rtSeconds
 
 	time.AfterFunc(time.Duration(left)*time.Second, func() {
-		wr, err := fl.openLogFiles()
-		if err != nil {
-			fl.Error("rotate log files failed: %v\n", err)
-			return
-		}
-		fl.mu.Lock()
-		owr := fl.out.out
-		fl.out.out = wr
-		fl.mu.Unlock()
-		for _, r := range owr {
-			f := r.(*os.File)
-			f.Close()
-		}
+		fl.rot <- struct{}{}
 	})
+
+	go func() {
+		for {
+			select {
+			case <-fl.rot:
+				println("time is up, rotate...")
+				fl.mu.Lock()
+				owr := fl.out.out
+				fl.closeLogFiles(owr)
+				wr, err := fl.openLogFiles()
+				if err != nil {
+					fl.Error("rotate log files failed: %v\n", err)
+				} else {
+					fl.out.out = wr
+				}
+				fl.mu.Unlock()
+
+				tm := time.Now().Unix()
+				left := fl.rtSeconds - tm%fl.rtSeconds
+				time.AfterFunc(time.Duration(left)*time.Second, func() {
+					fl.rot <- struct{}{}
+				})
+			case <-fl.exist:
+				return
+			}
+		}
+	}()
+}
+
+func (fl *fileLogger) closeLogFiles(fs map[int]io.WriteCloser) {
+	var err error
+
+	fl.sequence++
+	for _, r := range fs {
+		f := r.(*os.File)
+		f.Close()
+		println(f.Name())
+		if fl.rotDuration < DailyDuration {
+			err = os.Rename(f.Name(), f.Name()[0:len(f.Name())-4]+fmt.Sprintf(".%03d", fl.sequence)+".log")
+		} else {
+			err = os.Rename(f.Name(), f.Name()[0:len(f.Name())-4]+".log")
+		}
+		if err != nil {
+			log.Println(err)
+		}
+	}
+}
+
+func (fl *fileLogger) Close() {
+	fl.exist <- struct{}{}
+	fl.mu.Lock()
+	defer fl.mu.Unlock()
+	fl.closeLogFiles(fl.out.out)
 }

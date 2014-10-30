@@ -160,5 +160,4 @@ func (c console) Panic(format string, v ...interface{}) {
 }
 
 func (c console) Close() {
-
 }

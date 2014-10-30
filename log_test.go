@@ -1,8 +1,8 @@
 package glog
 
 import (
-	//"os"
 	"testing"
+	"time"
 )
 
 func TestConsoleLog(t *testing.T) {
@@ -20,6 +20,7 @@ func TestConsoleLog(t *testing.T) {
 
 func TestFileLog(t *testing.T) {
 	InitLogger(PRO, map[string]interface{}{"typ": "file", "dir": "./logs"})
+	//InitLogger(PRO, map[string]interface{}{"typ": "file", "seconds": 15})
 	Debug("this is a debug info\n")
 	Info("this is a info %s", "logger init successfully.\n")
 	Warn("this is a warning: base value should not be %d\n", 0)
@@ -29,4 +30,17 @@ func TestFileLog(t *testing.T) {
 	Info("modify info log prefix to %s\n", Prefix(InfoLevel))
 	Info("no new line")
 	Info("new prefix info log\n")
+
+	time.Sleep(3 * time.Second)
+	Info("log after 3 seconds.")
+
+	time.Sleep(5 * time.Second)
+	Info("log after 5 seconds.")
+
+	time.Sleep(8 * time.Second)
+	Info("log after 8 seconds.")
+
+	time.Sleep(6 * time.Second)
+	Info("log after 6 seconds.")
+	Close()
 }
