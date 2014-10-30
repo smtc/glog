@@ -130,11 +130,11 @@ func (fl *fileLogger) buildFileOut(prefix map[int]string) (err error) {
 	return
 }
 
-func (fl *fileLogger) openLogFiles() (wr map[int]io.Writer, err error) {
+func (fl *fileLogger) openLogFiles() (wr map[int]io.WriteCloser, err error) {
 	var f *os.File
 
 	suffix := formatSuffix(fl.format)
-	wr = make(map[int]io.Writer)
+	wr = make(map[int]io.WriteCloser)
 
 	for i := DebugLevel; i < LevelCount; i++ {
 		if f, err = os.OpenFile(path.Join(fl.dir, prefixFn[i]+suffix), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666); err != nil {

@@ -37,7 +37,7 @@ const (
 
 type outputer struct {
 	prefix map[int]string
-	out    map[int]io.Writer
+	out    map[int]io.WriteCloser
 }
 
 // A Logger represents an active logging object that generates lines of
@@ -218,4 +218,12 @@ func (o outputer) Write(lv int, buf []byte) (int, error) {
 		return 0, fmt.Errorf("No writer for level %d", lv)
 	}
 	return wr.Write(buf)
+}
+
+func (l *Logger) Close() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for i := DebugLevel; i < LevelCount; i++ {
+		l.out.out[i].Close()
+	}
 }

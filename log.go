@@ -37,6 +37,7 @@ type logger interface {
 	SetPrefix(lv int, prefix string)
 	Flags() int
 	SetFlags(flag int)
+	Close()
 }
 
 func InitLogger(level logType, options map[string]interface{}) {
@@ -66,6 +67,11 @@ func InitLogger(level logType, options map[string]interface{}) {
 		}
 	}
 }
+
+func Close() {
+	_logger.Close()
+}
+
 func Flags() int {
 	return _logger.Flags()
 }
@@ -151,4 +157,8 @@ func (c console) Fatal(format string, v ...interface{}) {
 
 func (c console) Panic(format string, v ...interface{}) {
 	log.Panicf(c.prefixes[PanicLevel]+" "+format, v...)
+}
+
+func (c console) Close() {
+
 }

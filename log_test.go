@@ -19,7 +19,7 @@ func TestConsoleLog(t *testing.T) {
 }
 
 func TestFileLog(t *testing.T) {
-	InitLogger(PRO, map[string]interface{}{"typ": "file"})
+	InitLogger(PRO, map[string]interface{}{"typ": "file", "dir": "./logs"})
 	Debug("this is a debug info\n")
 	Info("this is a info %s", "logger init successfully.\n")
 	Warn("this is a warning: base value should not be %d\n", 0)
