@@ -196,7 +196,7 @@ func (fl *fileLogger) rotate() {
 		for {
 			select {
 			case <-fl.rot:
-				println("time is up, rotate...")
+				//println("time is up, rotate...")
 				fl.mu.Lock()
 				owr := fl.out.out
 				fl.closeLogFiles(owr)
@@ -227,7 +227,7 @@ func (fl *fileLogger) closeLogFiles(fs map[int]io.WriteCloser) {
 	for _, r := range fs {
 		f := r.(*os.File)
 		f.Close()
-		println(f.Name())
+		//println(f.Name())
 		if fl.rotDuration < DailyDuration {
 			err = os.Rename(f.Name(), f.Name()[0:len(f.Name())-4]+fmt.Sprintf(".%03d", fl.sequence)+".log")
 		} else {
