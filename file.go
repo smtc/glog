@@ -9,6 +9,7 @@ import (
 	"os/user"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -26,6 +27,7 @@ type fileLogger struct {
 	rotDuration time.Duration
 	rot         chan struct{}
 	exist       chan struct{}
+	existed     chan bool
 }
 
 const (
@@ -73,6 +75,108 @@ func shortHostname(hostname string) string {
 	return hostname
 }
 
+func cleanTmpLogs(dir string) {
+	var (
+		err error
+		fns []string = make([]string, 0)
+	)
+
+	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+
+		if strings.HasSuffix(path, ".tmp") {
+			fns = append(fns, path)
+		}
+		return nil
+	})
+	if err != nil {
+		fmt.Printf("clean tmp logs failed: walk dir %s failed: %v\n", dir, err)
+	}
+
+	for _, fn := range fns {
+		renameTmpLogs(dir, fn)
+	}
+
+	return
+}
+
+func renameTmpLogs(dir, fn string) {
+	if len(fn) <= 4 {
+		return
+	}
+
+	// 不断的尝试rename fn - ".tmp" + xxx + ".log", 直到成功为止
+	var (
+		seq    int = 1
+		err    error
+		baseFn = filepath.Base(fn)
+		nfn    string
+	)
+
+	if len(baseFn) < 4 {
+		fmt.Printf("tmp log filename %s %s invalid: filename should contain .tmp\n", fn, baseFn)
+		return
+	}
+	baseFn = baseFn[0 : len(baseFn)-4]
+
+	seq = checkSequence(dir, baseFn) + 1
+	nfn = path.Join(dir, baseFn+fmt.Sprintf(".seq%03d", seq)+".log")
+
+	if err = os.Rename(fn, nfn); err != nil {
+		fmt.Printf("Cannot rename tmp log file %s, remove it\n", fn, err)
+		os.Remove(fn)
+	}
+
+	return
+}
+
+// 检查是否由以tmp结尾的文件, 可能有雨程序崩溃, 存在tmp结尾的文件，把这些文件转换为对应的log后缀
+func checkSequence(dir, fnDate string) int {
+	var (
+		err      error
+		seq      int
+		sequence int
+		fns      []string = make([]string, 0)
+	)
+
+	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+		baseFn := filepath.Base(path)
+		if strings.Contains(baseFn, fnDate) {
+			fns = append(fns, baseFn)
+		}
+		return nil
+	})
+	if err != nil {
+		fmt.Printf("check sequence: walk dir %s failed: %v\n", dir, err)
+	}
+
+	for _, fn := range fns {
+		segs := strings.Split(fn, ".")
+		if len(segs) < 2 {
+			continue
+		}
+		sseq := segs[len(segs)-2]
+		if strings.HasPrefix(sseq, "seq") == false {
+			continue
+		}
+		seq, err = strconv.Atoi(sseq[3:])
+		if err != nil {
+			fmt.Printf("convert sequence %s failed: %v\n", sseq[3:], err)
+			continue
+		}
+		if sequence < seq {
+			sequence = seq
+		}
+	}
+
+	return sequence
+}
+
 // options:
 //    flag: int
 //    prefix: map[int]string
@@ -84,13 +188,14 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 		ok       bool
 		err      error
 		flag     int
+		sequence int
 		dir      string
 		fnSuffix string
 		prefix   map[int]string
 	)
 
 	if flag, ok = options["flag"].(int); !ok {
-		flag = 0
+		flag = Ldate | Ltime
 	}
 
 	// 使用不同文件来记录不同等级的log，不需要加前缀
@@ -108,6 +213,10 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 		dir = "./"
 	}
 
+	// 清理tmp log文件
+	cleanTmpLogs(dir)
+	sequence = checkSequence(dir, formatSuffix(fnSuffix))
+
 	fl := &fileLogger{
 		Logger{
 			flag: flag,
@@ -117,11 +226,19 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 		goutils.ToInt64(options["seconds"], 86400),
 		goutils.ToInt64(options["items"], 0),
 		goutils.ToInt64(options["nbytes"], 0),
-		0, // sequence
+		sequence, // sequence
 		0,
 		make(chan struct{}),
 		make(chan struct{}),
+		make(chan bool),
 	}
+
+	//fmt.Println("createFileLogger: sequence=", fl.sequence, fl.rtSeconds, options["seconds"])
+	if fl.rtSeconds < 5 {
+		fl.rtSeconds = 5
+	}
+
+	fl.rotDuration = time.Duration(fl.rtSeconds) * time.Second
 
 	err = fl.buildFileOut(prefix)
 	if err != nil {
@@ -147,15 +264,22 @@ func (fl *fileLogger) buildFileOut(prefix map[int]string) (err error) {
 }
 
 func (fl *fileLogger) openLogFiles() (wr map[int]io.WriteCloser, err error) {
-	var f *os.File
+	var (
+		f  *os.File
+		fn string
+	)
 
 	suffix := formatSuffix(fl.format)
 	wr = make(map[int]io.WriteCloser)
 
 	for i := DebugLevel; i < LevelCount; i++ {
-		if f, err = os.OpenFile(path.Join(fl.dir, prefixFn[i]+suffix+".tmp"), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666); err != nil {
-			return
+		fn = path.Join(fl.dir, prefixFn[i]+suffix+".tmp")
+		//log.Printf("open log level %d, fn=%s\n", i, fn)
+		if f, err = os.OpenFile(fn, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666); err != nil {
+			log.Printf("open log file %s failed: %v\n", fn, err)
+			continue
 		}
+
 		wr[i] = f
 	}
 
@@ -188,15 +312,11 @@ func (fl *fileLogger) rotate() {
 	tm := time.Now().Unix()
 	left := fl.rtSeconds - tm%fl.rtSeconds
 
-	time.AfterFunc(time.Duration(left)*time.Second, func() {
-		fl.rot <- struct{}{}
-	})
-
 	go func() {
 		for {
 			select {
 			case <-fl.rot:
-				//println("time is up, rotate...")
+				//log.Println("time is up, rotate ....")
 				fl.mu.Lock()
 				owr := fl.out.out
 				fl.closeLogFiles(owr)
@@ -214,34 +334,49 @@ func (fl *fileLogger) rotate() {
 					fl.rot <- struct{}{}
 				})
 			case <-fl.exist:
+				//log.Println("file log exist ....")
+				fl.mu.Lock()
+				owr := fl.out.out
+				fl.closeLogFiles(owr)
+				fl.mu.Unlock()
+				close(fl.existed)
 				return
 			}
 		}
 	}()
+
+	// log.Println("rotate: left=", left)
+	time.AfterFunc(time.Duration(left)*time.Second, func() {
+		fl.rot <- struct{}{}
+	})
 }
 
 func (fl *fileLogger) closeLogFiles(fs map[int]io.WriteCloser) {
-	var err error
+	var (
+		err     error
+		fn, nfn string
+	)
 
 	fl.sequence++
 	for _, r := range fs {
 		f := r.(*os.File)
 		f.Close()
-		//println(f.Name())
+
 		if fl.rotDuration < DailyDuration {
-			err = os.Rename(f.Name(), f.Name()[0:len(f.Name())-4]+fmt.Sprintf(".%03d", fl.sequence)+".log")
+			nfn = f.Name()[0:len(f.Name())-4] + fmt.Sprintf(".seq%03d", fl.sequence) + ".log"
 		} else {
-			err = os.Rename(f.Name(), f.Name()[0:len(f.Name())-4]+".log")
+			nfn = f.Name()[0:len(f.Name())-4] + ".log"
 		}
-		if err != nil {
-			log.Println(err)
+		fn = f.Name()
+		if err = os.Rename(fn, nfn); err != nil {
+			log.Println("closeLogFiles failed:", err)
+		} else {
+			//log.Println("closeLogFiles:", fn, nfn)
 		}
 	}
 }
 
 func (fl *fileLogger) Close() {
 	fl.exist <- struct{}{}
-	fl.mu.Lock()
-	defer fl.mu.Unlock()
-	fl.closeLogFiles(fl.out.out)
+	<-fl.existed
 }

@@ -74,7 +74,6 @@ func itoa(buf *[]byte, i int, wid int) {
 }
 
 func (l *Logger) formatHeader(lv int, buf *[]byte, t time.Time, file string, line int) {
-	*buf = append(*buf, l.out.prefix[lv]...)
 	if l.flag&(Ldate|Ltime|Lmicroseconds) != 0 {
 		if l.flag&Ldate != 0 {
 			year, month, day := t.Date()
@@ -115,6 +114,7 @@ func (l *Logger) formatHeader(lv int, buf *[]byte, t time.Time, file string, lin
 		itoa(buf, line, -1)
 		*buf = append(*buf, ": "...)
 	}
+	*buf = append(*buf, l.out.prefix[lv]...)
 }
 
 // Output writes the output for a logging event.  The string s contains

@@ -10,7 +10,8 @@ type logType int
 const (
 	DEV logType = iota
 	PRO
-
+)
+const (
 	DebugLevel = iota
 	InfoLevel
 	WarnLevel

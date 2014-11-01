@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func TestConsoleLog(t *testing.T) {
+func testConsoleLog(t *testing.T) {
 	InitLogger(DEV, nil)
 	Debug("this is a debug info\n")
 	Info("this is a info %s", "logger init successfully.\n")
@@ -18,7 +18,7 @@ func TestConsoleLog(t *testing.T) {
 	Info("new prefix info log\n")
 }
 
-func TestFileLog(t *testing.T) {
+func testFileLog(t *testing.T) {
 	InitLogger(PRO, map[string]interface{}{"typ": "file", "dir": "./logs"})
 	//InitLogger(PRO, map[string]interface{}{"typ": "file", "seconds": 15})
 	Debug("this is a debug info\n")
@@ -41,6 +41,40 @@ func TestFileLog(t *testing.T) {
 	Info("log after 8 seconds.")
 
 	time.Sleep(6 * time.Second)
+	Info("log after 6 seconds.")
+
+	time.Sleep(6 * time.Second)
+	Info("log after 6 seconds.")
+
+	Close()
+}
+
+func TestFileLogClean(t *testing.T) {
+	InitLogger(PRO, map[string]interface{}{"typ": "file", "dir": "./logs", "seconds": 5, "suffix": "-{{yyyy}}{{mm}}{{dd}}"})
+	//InitLogger(PRO, map[string]interface{}{"typ": "file", "seconds": 5})
+	Debug("this is a debug info\n")
+	Info("this is a info %s", "logger init successfully.\n")
+	Warn("this is a warning: base value should not be %d\n", 0)
+	Error("this is a error log\n")
+
+	SetPrefix(InfoLevel, "information:")
+	Info("modify info log prefix to %s\n", Prefix(InfoLevel))
+	Info("no new line")
+	Info("new prefix info log\n")
+
+	time.Sleep(3 * time.Second)
+	Info("log after 3 seconds.")
+
+	time.Sleep(5 * time.Second)
+	Info("log after 5 seconds.")
+
+	time.Sleep(8 * time.Second)
+	Info("log after 8 seconds.")
+
+	time.Sleep(6 * time.Second)
+	Info("log after 6 seconds.")
+
+	time.Sleep(60 * time.Second)
 	Info("log after 6 seconds.")
 	Close()
 }
