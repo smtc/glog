@@ -2,8 +2,8 @@ package glog
 
 import (
 	"fmt"
-	"github.com/smtc/goutils"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/smtc/goutils"
 )
 
 type fileLogger struct {
@@ -75,7 +77,7 @@ func shortHostname(hostname string) string {
 	return hostname
 }
 
-func cleanTmpLogs(dir string) {
+func cleanTmpLogs(dir string, contact bool) {
 	var (
 		err error
 		fns []string = make([]string, 0)
@@ -96,13 +98,13 @@ func cleanTmpLogs(dir string) {
 	}
 
 	for _, fn := range fns {
-		renameTmpLogs(dir, fn)
+		renameTmpLogs(dir, fn, contact)
 	}
 
 	return
 }
 
-func renameTmpLogs(dir, fn string) {
+func renameTmpLogs(dir, fn string, contact bool) {
 	if len(fn) <= 4 {
 		return
 	}
@@ -121,15 +123,37 @@ func renameTmpLogs(dir, fn string) {
 	}
 	baseFn = baseFn[0 : len(baseFn)-4]
 
-	seq = checkSequence(dir, baseFn) + 1
-	nfn = path.Join(dir, baseFn+fmt.Sprintf(".seq%03d", seq)+".log")
+	if contact {
+		contactLog(path.Join(dir, baseFn+".log"), fn)
+	} else {
+		seq = checkSequence(dir, baseFn) + 1
+		nfn = path.Join(dir, baseFn+fmt.Sprintf(".seq%03d", seq)+".log")
 
-	if err = os.Rename(fn, nfn); err != nil {
-		fmt.Printf("Cannot rename tmp log file %s, remove it\n", fn, err)
-		os.Remove(fn)
+		if err = os.Rename(fn, nfn); err != nil {
+			fmt.Printf("Cannot rename tmp log file %s, remove it\n", fn, err)
+			os.Remove(fn)
+		}
 	}
 
 	return
+}
+
+func contactLog(log, tmp string) {
+	file, err := os.OpenFile(log, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm|os.ModeTemporary)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	tmpFile, err := os.Open(tmp)
+	if err != nil {
+		panic(err)
+	}
+	defer tmpFile.Close()
+
+	buff, _ := ioutil.ReadAll(tmpFile)
+	file.Write(buff)
+	os.Remove(tmp)
 }
 
 // 检查是否由以tmp结尾的文件, 可能有雨程序崩溃, 存在tmp结尾的文件，把这些文件转换为对应的log后缀
@@ -191,6 +215,7 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 		sequence int
 		dir      string
 		fnSuffix string
+		contact  bool
 		prefix   map[int]string
 	)
 
@@ -201,6 +226,10 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 	// 使用不同文件来记录不同等级的log，不需要加前缀
 	if prefix, ok = options["prefix"].(map[int]string); !ok {
 		prefix = nil
+	}
+
+	if contact, ok = options["contact"].(bool); !ok {
+		contact = false
 	}
 
 	if fnSuffix, ok = options["suffix"].(string); !ok {
@@ -214,7 +243,7 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 	}
 
 	// 清理tmp log文件
-	cleanTmpLogs(dir)
+	cleanTmpLogs(dir, contact)
 	sequence = checkSequence(dir, formatSuffix(fnSuffix))
 
 	fl := &fileLogger{
