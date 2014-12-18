@@ -243,6 +243,13 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 		dir = "./"
 	}
 
+	// 判断目录是否存在
+	_, err = os.Stat(dir)
+	dirExisted := err == nil || os.IsExist(err)
+	if !dirExisted {
+		os.Mkdir(dir, 0666)
+	}
+
 	// 清理tmp log文件
 	cleanTmpLogs(dir, contact)
 	sequence = checkSequence(dir, formatSuffix(fnSuffix))
