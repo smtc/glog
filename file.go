@@ -30,6 +30,7 @@ type fileLogger struct {
 	rot         chan struct{}
 	exist       chan struct{}
 	existed     chan bool
+	contact     bool
 }
 
 const (
@@ -260,6 +261,7 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 		make(chan struct{}),
 		make(chan struct{}),
 		make(chan bool),
+		contact,
 	}
 
 	//fmt.Println("createFileLogger: sequence=", fl.sequence, fl.rtSeconds, options["seconds"])
@@ -391,16 +393,20 @@ func (fl *fileLogger) closeLogFiles(fs map[int]io.WriteCloser) {
 		f := r.(*os.File)
 		f.Close()
 
-		if fl.rotDuration < DailyDuration {
-			nfn = f.Name()[0:len(f.Name())-4] + fmt.Sprintf(".seq%03d", fl.sequence) + ".log"
+		if fl.contact {
+			contactLog(f.Name()[0:len(f.Name())-4]+".log", f.Name())
 		} else {
-			nfn = f.Name()[0:len(f.Name())-4] + ".log"
-		}
-		fn = f.Name()
-		if err = os.Rename(fn, nfn); err != nil {
-			log.Println("closeLogFiles failed:", err)
-		} else {
-			//log.Println("closeLogFiles:", fn, nfn)
+			if fl.rotDuration < DailyDuration {
+				nfn = f.Name()[0:len(f.Name())-4] + fmt.Sprintf(".seq%03d", fl.sequence) + ".log"
+			} else {
+				nfn = f.Name()[0:len(f.Name())-4] + ".log"
+			}
+			fn = f.Name()
+			if err = os.Rename(fn, nfn); err != nil {
+				log.Println("closeLogFiles failed:", err)
+			} else {
+				//log.Println("closeLogFiles:", fn, nfn)
+			}
 		}
 	}
 }
