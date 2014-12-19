@@ -205,6 +205,7 @@ func checkSequence(dir, fnDate string) int {
 //    flag: int
 //    prefix: map[int]string
 //    dir: string
+//    contcat:
 //    format: string
 //
 func createFileLogger(options map[string]interface{}) *fileLogger {

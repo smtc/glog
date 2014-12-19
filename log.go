@@ -62,7 +62,7 @@ func InitLogger(level logType, options map[string]interface{}) {
 		case "file":
 			_logger = createFileLogger(options)
 		case "nsq":
-			fallthrough
+			_logger = createNsqLogger(options)
 		default:
 			_logger = console{}
 		}
