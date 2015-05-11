@@ -5,6 +5,7 @@ import (
 	nsq "github.com/bitly/go-nsq"
 	"io"
 	"net"
+	//"syscall"
 )
 
 type nsqLogger struct {
