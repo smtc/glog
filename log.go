@@ -22,8 +22,8 @@ const (
 )
 
 var (
-	_       = fmt.Printf
-	_logger logger
+	_              = fmt.Printf
+	_logger logger = console{}
 )
 
 type logger interface {
