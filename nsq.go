@@ -1,5 +1,6 @@
 package glog
 
+/*
 import (
 	"errors"
 	nsq "github.com/bitly/go-nsq"
@@ -140,3 +141,4 @@ func (nw *nsqWriter) Close() error {
 	nw.Stop()
 	return nil
 }
+*/

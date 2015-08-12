@@ -61,8 +61,8 @@ func InitLogger(level logType, options map[string]interface{}) {
 		switch options["typ"].(string) {
 		case "file":
 			_logger = createFileLogger(options)
-		case "nsq":
-			_logger = createNsqLogger(options)
+		//case "nsq":
+		//	_logger = createNsqLogger(options)
 		default:
 			_logger = console{}
 		}
