@@ -25,6 +25,7 @@ type fileLogger struct {
 	rtItems   int64
 	rtNbytes  int64
 	sequence  int
+	natureDay bool // 自然日模式
 
 	rotDuration time.Duration
 	rot         chan struct{}
@@ -265,6 +266,7 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 		goutils.ToInt64(options["items"], 0),
 		goutils.ToInt64(options["nbytes"], 0),
 		sequence, // sequence
+		true,
 		0,
 		make(chan struct{}),
 		make(chan struct{}),
@@ -348,8 +350,16 @@ func formatSuffix(format string) (res string) {
 // 2014-10-17 guotie
 // TODO: rotate file logs
 func (fl *fileLogger) rotate() {
+	var left int64
+
 	tm := time.Now().Unix()
-	left := fl.rtSeconds - tm%fl.rtSeconds
+	if fl.rtSeconds%86400 == 0 && fl.natureDay {
+		// 按自然日生成日志
+		_, offset := time.Now().Zone()
+		left = fl.rtSeconds - (tm-int64(offset))%fl.rtSeconds
+	} else {
+		left = fl.rtSeconds - tm%fl.rtSeconds
+	}
 
 	go func() {
 		for {

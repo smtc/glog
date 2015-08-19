@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+func TestLocal(t *testing.T) {
+	tm := time.Now()
+	t.Log(tm.Zone())
+}
+
 func testConsoleLog(t *testing.T) {
 	InitLogger(DEV, nil)
 	Debug("this is a debug info\n")
@@ -79,14 +84,7 @@ func testFileLogClean(t *testing.T) {
 	Close()
 }
 
-func TestGetLocalAddr(t *testing.T) {
-	la, err := getLocalAddr()
-	if err != nil {
-		t.Error(err)
-	}
-	_ = la
-}
-
+/*
 func TestNsqLog(t *testing.T) {
 	InitLogger(PRO, map[string]interface{}{"typ": "nsq", "nsqdAddr": "10.10.133.80:4150"})
 
@@ -114,3 +112,4 @@ func TestNsqLog(t *testing.T) {
 
 	Close()
 }
+*/
