@@ -356,7 +356,7 @@ func (fl *fileLogger) rotate() {
 	if fl.rtSeconds%86400 == 0 && fl.natureDay {
 		// 按自然日生成日志
 		_, offset := time.Now().Zone()
-		left = fl.rtSeconds - (tm-int64(offset))%fl.rtSeconds
+		left = fl.rtSeconds - (tm+int64(offset))%fl.rtSeconds
 	} else {
 		left = fl.rtSeconds - tm%fl.rtSeconds
 	}
