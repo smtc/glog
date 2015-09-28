@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/guotie/days"
 	"github.com/smtc/goutils"
 )
 
@@ -352,11 +353,12 @@ func formatSuffix(format string) (res string) {
 func (fl *fileLogger) rotate() {
 	var left int64
 
+	now := time.Now()
 	tm := time.Now().Unix()
 	if fl.rtSeconds%86400 == 0 && fl.natureDay {
 		// 按自然日生成日志
-		_, offset := time.Now().Zone()
-		left = fl.rtSeconds - (tm+int64(offset))%fl.rtSeconds
+		tom := days.Tomorrow(now).Unix()
+		left = tom - tm
 	} else {
 		left = fl.rtSeconds - tm%fl.rtSeconds
 	}
