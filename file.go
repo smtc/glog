@@ -454,7 +454,7 @@ func renameLog(ofn, nfn string) error {
 	if err == nil {
 		//
 		f.Close()
-		contactLog(ofn, nfn)
+		contactLog(nfn, ofn)
 		return nil
 	}
 
