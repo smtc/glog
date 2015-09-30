@@ -247,9 +247,9 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 	}
 	if fnSuffix, ok = options["suffix"].(string); !ok {
 		if duration == "day" {
-			fnSuffix = "-{{yyyy}}{{mm}}{{dd}}-{{pid}}"
+			fnSuffix = "-{{yyyy}}{{mm}}{{dd}}"
 		} else {
-			fnSuffix = "-{{yyyy}}{{mm}}{{dd}}-{{HH}}-{{pid}}"
+			fnSuffix = "-{{yyyy}}{{mm}}{{dd}}-{{HH}}"
 		}
 	}
 
