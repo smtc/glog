@@ -9,7 +9,6 @@ package glog
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
@@ -183,8 +182,8 @@ func checkSequence(dir, fnDate string) int {
 }
 */
 
-func contactLog(log, tmp string) {
-	file, err := os.OpenFile(log, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm|os.ModeTemporary)
+func contactLog(logf, tmp string) {
+	file, err := os.OpenFile(logf, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm|os.ModeTemporary)
 	if err != nil {
 		panic(err)
 	}
@@ -198,8 +197,17 @@ func contactLog(log, tmp string) {
 	}
 	defer tmpFile.Close()
 
-	buff, _ := ioutil.ReadAll(tmpFile)
-	file.Write(buff)
+	buff := make([]byte, 256*1024)
+	for err != io.EOF {
+		_, err = tmpFile.Read(buff)
+		if err != nil && err != io.EOF {
+			log.Printf("Read file %s failed: %s\n", tmp, err.Error())
+			return
+		}
+		file.Write(buff)
+	}
+	//buff, _ := ioutil.ReadAll(tmpFile)
+	//file.Write(buff)
 	os.Remove(tmp)
 }
 
