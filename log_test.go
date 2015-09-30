@@ -55,7 +55,7 @@ func testFileLog(t *testing.T) {
 }
 
 func testFileLogClean(t *testing.T) {
-	InitLogger(PRO, map[string]interface{}{"typ": "file", "dir": "./logs", "seconds": 5, "suffix": "-{{yyyy}}{{mm}}{{dd}}"})
+	InitLogger(PRO, map[string]interface{}{"typ": "file", "dir": "./logs", "suffix": "-{{yyyy}}{{mm}}{{dd}}"})
 	//InitLogger(PRO, map[string]interface{}{"typ": "file", "seconds": 5})
 	Debug("this is a debug info\n")
 	Info("this is a info %s", "logger init successfully.\n")

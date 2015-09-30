@@ -1,5 +1,11 @@
 package glog
 
+// 2015-09-30
+// 简化一下：
+// 当前正在使用的日志命名为.log
+// 间隔只能以Hour, 或者以天为单位
+//
+
 import (
 	"fmt"
 	"io"
@@ -9,7 +15,7 @@ import (
 	"os/user"
 	"path"
 	"path/filepath"
-	"strconv"
+	//"strconv"
 	"strings"
 	"time"
 
@@ -20,25 +26,15 @@ import (
 type fileLogger struct {
 	Logger
 	dir    string
-	format string // file suffix, such as "{{program}}-{{host}}-{{username}}-{{yyyy}}{{mm}}{{dd}}-{{HH}}{{MM}}{{SS}}-{{pid}}"
-
-	rtSeconds int64
-	rtItems   int64
-	rtNbytes  int64
-	sequence  int
-	natureDay bool // 自然日模式
+	format string // file suffix, such as "{{program}}-{{host}}-{{username}}-{{yyyy}}{{mm}}{{dd}}-{{pid}}"
 
 	rotDuration time.Duration
 	rot         chan struct{}
-	exist       chan struct{}
-	existed     chan bool
-	contact     bool
+	exit        chan struct{}
+	exited      chan bool
+	//contact     bool
+	duration string // must be hour or day
 }
-
-const (
-	HourlyDuration = (time.Duration(3600) * time.Second)
-	DailyDuration  = (time.Duration(86400) * time.Second)
-)
 
 var (
 	pid      = os.Getpid()
@@ -80,6 +76,7 @@ func shortHostname(hostname string) string {
 	return hostname
 }
 
+/*
 func cleanTmpLogs(dir string, contact bool) {
 	var (
 		err error
@@ -141,24 +138,6 @@ func renameTmpLogs(dir, fn string, contact bool) {
 	return
 }
 
-func contactLog(log, tmp string) {
-	file, err := os.OpenFile(log, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm|os.ModeTemporary)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
-
-	tmpFile, err := os.Open(tmp)
-	if err != nil {
-		panic(err)
-	}
-	defer tmpFile.Close()
-
-	buff, _ := ioutil.ReadAll(tmpFile)
-	file.Write(buff)
-	os.Remove(tmp)
-}
-
 // 检查是否由以tmp结尾的文件, 可能有雨程序崩溃, 存在tmp结尾的文件，把这些文件转换为对应的log后缀
 func checkSequence(dir, fnDate string) int {
 	var (
@@ -203,6 +182,25 @@ func checkSequence(dir, fnDate string) int {
 
 	return sequence
 }
+*/
+
+func contactLog(log, tmp string) {
+	file, err := os.OpenFile(log, os.O_CREATE|os.O_APPEND|os.O_RDWR, os.ModePerm|os.ModeTemporary)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	tmpFile, err := os.Open(tmp)
+	if err != nil {
+		panic(err)
+	}
+	defer tmpFile.Close()
+
+	buff, _ := ioutil.ReadAll(tmpFile)
+	file.Write(buff)
+	os.Remove(tmp)
+}
 
 // options:
 //    flag: int
@@ -213,14 +211,15 @@ func checkSequence(dir, fnDate string) int {
 //
 func createFileLogger(options map[string]interface{}) *fileLogger {
 	var (
-		ok       bool
-		err      error
-		flag     int
-		sequence int
+		ok   bool
+		err  error
+		flag int
+		//sequence int
+		//contact  bool
 		dir      string
 		fnSuffix string
-		contact  bool
 		prefix   map[int]string
+		duration string = "day" // 按天来rotate日志或按小时rotate日志
 	)
 
 	if flag, ok = options["flag"].(int); !ok {
@@ -232,18 +231,27 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 		prefix = nil
 	}
 
-	if contact, ok = options["contact"].(bool); !ok {
-		contact = false
-	}
-
-	if fnSuffix, ok = options["suffix"].(string); !ok {
-		fnSuffix = "-{{yyyy}}{{mm}}{{dd}}-{{HH}}{{MM}}{{SS}}-{{pid}}"
-	}
-
 	if dir, ok = options["dir"].(string); !ok {
 		dir = "./logs"
 	} else if dir == "" {
 		dir = "./"
+	}
+
+	if duration, ok := options["duration"].(string); !ok {
+		duration = "day"
+	} else {
+		duration = strings.ToLower(strings.TrimSpace(duration))
+		if duration != "hour" && duration != "day" {
+			log.Printf("duration [%s] invalid, must be day or hour, set to day\n", duration)
+			duration = "day"
+		}
+	}
+	if fnSuffix, ok = options["suffix"].(string); !ok {
+		if duration == "day" {
+			fnSuffix = "-{{yyyy}}{{mm}}{{dd}}-{{pid}}"
+		} else {
+			fnSuffix = "-{{yyyy}}{{mm}}{{dd}}-{{HH}}-{{pid}}"
+		}
 	}
 
 	// 判断目录是否存在
@@ -253,9 +261,10 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 		os.Mkdir(dir, 0666)
 	}
 
+	// 2015-09-30 不存在tmp logs, sequence也不需要了
 	// 清理tmp log文件
-	cleanTmpLogs(dir, contact)
-	sequence = checkSequence(dir, formatSuffix(fnSuffix))
+	//cleanTmpLogs(dir, contact)
+	//sequence = checkSequence(dir, formatSuffix(fnSuffix))
 
 	fl := &fileLogger{
 		Logger{
@@ -263,31 +272,27 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 		},
 		dir,
 		fnSuffix,
-		goutils.ToInt64(options["seconds"], 86400),
-		goutils.ToInt64(options["items"], 0),
-		goutils.ToInt64(options["nbytes"], 0),
-		sequence, // sequence
-		true,
+
 		0,
 		make(chan struct{}),
 		make(chan struct{}),
 		make(chan bool),
-		contact,
+		//contact,
+		duration,
 	}
 
-	//fmt.Println("createFileLogger: sequence=", fl.sequence, fl.rtSeconds, options["seconds"])
-	if fl.rtSeconds < 5 {
-		fl.rtSeconds = 5
+	if duration == "day" {
+		fl.rotDuration = time.Duration(86400) * time.Second
+	} else {
+		fl.rotDuration = time.Duration(3600) * time.Second
 	}
-
-	fl.rotDuration = time.Duration(fl.rtSeconds) * time.Second
 
 	err = fl.buildFileOut(prefix)
 	if err != nil {
 		panic(err)
 	}
 
-	fl.rotate()
+	go fl.rotate()
 	return fl
 }
 
@@ -311,13 +316,13 @@ func (fl *fileLogger) openLogFiles() (wr map[int]io.WriteCloser, err error) {
 		fn string
 	)
 
-	suffix := formatSuffix(fl.format)
+	//suffix := formatSuffix(fl.format)
 	wr = make(map[int]io.WriteCloser)
 
 	for i := DebugLevel; i < LevelCount; i++ {
-		fn = path.Join(fl.dir, prefixFn[i]+suffix+".tmp")
+		fn = path.Join(fl.dir, prefixFn[i]+".log")
 		//log.Printf("open log level %d, fn=%s\n", i, fn)
-		if f, err = os.OpenFile(fn, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666); err != nil {
+		if f, err = os.OpenFile(fn, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666); err != nil {
 			log.Printf("open log file %s failed: %v\n", fn, err)
 			continue
 		}
@@ -328,12 +333,11 @@ func (fl *fileLogger) openLogFiles() (wr map[int]io.WriteCloser, err error) {
 	return
 }
 
-func formatSuffix(format string) (res string) {
+func formatSuffix(format string, tm time.Time) (res string) {
 	if format == "" {
 		return
 	}
 
-	tm := time.Now()
 	res = strings.Replace(format, "{{program}}", program, -1)
 	res = strings.Replace(res, "{{host}}", host, -1)
 	res = strings.Replace(format, "{{username}}", userName, -1)
@@ -348,90 +352,126 @@ func formatSuffix(format string) (res string) {
 	return
 }
 
+func (fl *fileLogger) toNextRotateSeconds(now time.Time) int {
+	if fl.duration == "hour" {
+		return 3600 - int(now.Unix()%3600)
+	}
+
+	tom := days.Tomorrow(now).Unix()
+
+	return int(tom - now.Unix())
+}
+
 // 2014-10-17 guotie
 // TODO: rotate file logs
 func (fl *fileLogger) rotate() {
-	var left int64
 
-	now := time.Now()
-	tm := time.Now().Unix()
-	if fl.rtSeconds%86400 == 0 && fl.natureDay {
-		// 按自然日生成日志
-		tom := days.Tomorrow(now).Unix()
-		left = tom - tm
-	} else {
-		left = fl.rtSeconds - tm%fl.rtSeconds
+	for {
+		select {
+		case <-fl.rot:
+			//log.Println("time is up, rotate ....")
+			fl.mu.Lock()
+			owr := fl.out.out
+			fl.closeLogFiles(owr)
+			wr, err := fl.openLogFiles()
+			if err != nil {
+				fl.Error("rotate log files failed: %v\n", err)
+			} else {
+				fl.out.out = wr
+			}
+			fl.mu.Unlock()
+
+		case <-fl.exit:
+			//log.Println("file log exist ....")
+			fl.mu.Lock()
+			owr := fl.out.out
+			fl.closeLogFiles(owr)
+			fl.mu.Unlock()
+			close(fl.exited)
+
+			return
+		}
 	}
 
 	go func() {
+		left := fl.toNextRotateSeconds(time.Now())
+		tmr := time.NewTimer(time.Duration(left) * time.Second)
 		for {
-			select {
-			case <-fl.rot:
-				//log.Println("time is up, rotate ....")
-				fl.mu.Lock()
-				owr := fl.out.out
-				fl.closeLogFiles(owr)
-				wr, err := fl.openLogFiles()
-				if err != nil {
-					fl.Error("rotate log files failed: %v\n", err)
-				} else {
-					fl.out.out = wr
-				}
-				fl.mu.Unlock()
+			<-tmr.C
+			fl.rot <- struct{}{}
 
-				tm := time.Now().Unix()
-				left := fl.rtSeconds - tm%fl.rtSeconds
-				time.AfterFunc(time.Duration(left)*time.Second, func() {
-					fl.rot <- struct{}{}
-				})
-			case <-fl.exist:
-				//log.Println("file log exist ....")
-				fl.mu.Lock()
-				owr := fl.out.out
-				fl.closeLogFiles(owr)
-				fl.mu.Unlock()
-				close(fl.existed)
-				return
-			}
+			left = fl.toNextRotateSeconds(time.Now())
+			tmr.Reset(time.Duration(left) * time.Second)
 		}
 	}()
-
-	// log.Println("rotate: left=", left)
-	time.AfterFunc(time.Duration(left)*time.Second, func() {
-		fl.rot <- struct{}{}
-	})
 }
 
 func (fl *fileLogger) closeLogFiles(fs map[int]io.WriteCloser) {
 	var (
 		err     error
 		fn, nfn string
+		suffix  string
 	)
 
-	fl.sequence++
+	now := time.Now()
+
+	if fl.duration == "day" {
+		yesterday := days.Yesterday(now)
+		suffix = formatSuffix(fl.format, yesterday)
+	} else {
+		lastHour := now.Add(-1 * time.Hour)
+		suffix = formatSuffix(fl.format, lastHour)
+	}
+
+	//fl.sequence++
 	for _, r := range fs {
 		f := r.(*os.File)
 		f.Close()
-
-		if fl.contact {
-			contactLog(f.Name()[0:len(f.Name())-4]+".log", f.Name())
-		} else {
-			if fl.rotDuration < DailyDuration {
-				nfn = f.Name()[0:len(f.Name())-4] + fmt.Sprintf(".seq%03d", fl.sequence) + ".log"
-			} else {
-				nfn = f.Name()[0:len(f.Name())-4] + ".log"
-			}
-			fn = f.Name()
-			if err = os.Rename(fn, nfn); err != nil {
-				log.Println("closeLogFiles failed:", err)
-			} else {
-				//log.Println("closeLogFiles:", fn, nfn)
-			}
+		fn = f.Name()
+		nfn = fn[0:len(fn)-4] + suffix + ".log"
+		err = renameLog(fn, nfn)
+		if err != nil {
+			log.Println("closeLogFiles failed:", err)
 		}
+
+		/*
+			if fl.contact {
+				contactLog(f.Name()[0:len(f.Name())-4]+".log", f.Name())
+			} else {
+				if fl.rotDuration < DailyDuration {
+					nfn = f.Name()[0:len(f.Name())-4] + fmt.Sprintf(".seq%03d", fl.sequence) + ".log"
+
+				} else {
+					nfn = f.Name()[0:len(f.Name())-4] + ".log"
+				}
+				fn = f.Name()
+				if err = os.Rename(fn, nfn); err != nil {
+					log.Println("closeLogFiles failed:", err)
+				} else {
+					//log.Println("closeLogFiles:", fn, nfn)
+				}
+			}
+		*/
 	}
 }
 
+func renameLog(ofn, nfn string) error {
+	f, err := os.Open(ofn)
+	if err == nil {
+		//
+		f.Close()
+		contactLog(ofn, nfn)
+		return nil
+	}
+
+	if os.IsNotExist(err) {
+		return os.Rename(ofn, nfn)
+	}
+
+	return err
+}
+
 func (fl *fileLogger) Close() {
-	fl.exist <- struct{}{}
-	<-fl.existed
+	fl.exit <- struct{}{}
+	<-fl.exited
 }
