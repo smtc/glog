@@ -433,30 +433,11 @@ func (fl *fileLogger) closeLogFiles(fs map[int]io.WriteCloser) {
 		if err != nil {
 			log.Println("closeLogFiles failed:", err)
 		}
-
-		/*
-			if fl.contact {
-				contactLog(f.Name()[0:len(f.Name())-4]+".log", f.Name())
-			} else {
-				if fl.rotDuration < DailyDuration {
-					nfn = f.Name()[0:len(f.Name())-4] + fmt.Sprintf(".seq%03d", fl.sequence) + ".log"
-
-				} else {
-					nfn = f.Name()[0:len(f.Name())-4] + ".log"
-				}
-				fn = f.Name()
-				if err = os.Rename(fn, nfn); err != nil {
-					log.Println("closeLogFiles failed:", err)
-				} else {
-					//log.Println("closeLogFiles:", fn, nfn)
-				}
-			}
-		*/
 	}
 }
 
 func renameLog(ofn, nfn string) error {
-	f, err := os.Open(ofn)
+	f, err := os.Open(nfn)
 	if err == nil {
 		//
 		f.Close()
