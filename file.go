@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/guotie/days"
-	"github.com/smtc/goutils"
 )
 
 type fileLogger struct {
@@ -296,8 +295,22 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 	return fl
 }
 
+func CreateDirIfNotExist(dir string) error {
+	_, err := os.Stat(dir)
+	// 目录存在
+	if err == nil {
+		return nil
+	}
+
+	// 其他错误
+	if !os.IsNotExist(err) {
+		return err
+	}
+	return os.MkdirAll(dir, os.ModeDir|0755)
+}
+
 func (fl *fileLogger) buildFileOut(prefix map[int]string) (err error) {
-	if err = goutils.CreateDirIfNotExist(fl.dir); err != nil {
+	if err = CreateDirIfNotExist(fl.dir); err != nil {
 		return
 	}
 
