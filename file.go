@@ -189,7 +189,7 @@ func contactLog(logf, tmp string) {
 	}
 	defer file.Close()
 
-	file.Write([]byte("\n\n--------------------------------------------------------\n\n"))
+	file.Write([]byte("\n\n--------------------------------------------------------\n\n\n"))
 
 	tmpFile, err := os.Open(tmp)
 	if err != nil {
