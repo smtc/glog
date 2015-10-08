@@ -405,7 +405,7 @@ func (fl *fileLogger) rotate() {
 			fl.mu.Unlock()
 
 		case <-fl.exit:
-			//log.Println("file log exist ....")
+			//log.Println("file log exit ....")
 			fl.mu.Lock()
 			owr := fl.out.out
 			fl.closeLogFiles(owr, "exit")
@@ -446,7 +446,7 @@ func (fl *fileLogger) closeLogFiles(fs map[int]io.WriteCloser, mod string) {
 
 	tm = time.Now()
 
-	if mod == "exit" {
+	if mod != "exit" {
 		if fl.duration == "day" {
 			tm = days.Yesterday(tm)
 		} else {
