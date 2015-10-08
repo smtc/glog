@@ -395,7 +395,7 @@ func (fl *fileLogger) rotate() {
 			//log.Println("time is up, rotate ....")
 			fl.mu.Lock()
 			owr := fl.out.out
-			fl.closeLogFiles(owr)
+			fl.closeLogFiles(owr, "rotate")
 			wr, err := fl.openLogFiles()
 			if err != nil {
 				fl.Error("rotate log files failed: %v\n", err)
@@ -408,7 +408,7 @@ func (fl *fileLogger) rotate() {
 			//log.Println("file log exist ....")
 			fl.mu.Lock()
 			owr := fl.out.out
-			fl.closeLogFiles(owr)
+			fl.closeLogFiles(owr, "exit")
 			fl.mu.Unlock()
 			close(fl.exited)
 
@@ -429,22 +429,31 @@ func (fl *fileLogger) rotate() {
 	}()
 }
 
-func (fl *fileLogger) closeLogFiles(fs map[int]io.WriteCloser) {
+// mod: 关闭的方式
+//	       "rotate": 使用昨天或者上一个小时的时间作为文件后缀
+//         "exit":   使用当前时间作为后缀
+func (fl *fileLogger) closeLogFiles(fs map[int]io.WriteCloser, mod string) {
 	var (
 		err     error
 		fn, nfn string
 		suffix  string
+		tm      time.Time
 	)
 
-	now := time.Now()
-
-	if fl.duration == "day" {
-		yesterday := days.Yesterday(now)
-		suffix = formatSuffix(fl.format, yesterday)
-	} else {
-		lastHour := now.Add(-1 * time.Hour)
-		suffix = formatSuffix(fl.format, lastHour)
+	if mod != "rotate" && mod != "exit" {
+		panic(`invalid param mod: must be "rotate" or "exit"!`)
 	}
+
+	tm = time.Now()
+
+	if mod == "exit" {
+		if fl.duration == "day" {
+			tm = days.Yesterday(tm)
+		} else {
+			tm = tm.Add(-1 * time.Hour)
+		}
+	}
+	suffix = formatSuffix(fl.format, tm)
 
 	//fl.sequence++
 	for _, r := range fs {
