@@ -388,11 +388,23 @@ func (fl *fileLogger) toNextRotateSeconds(now time.Time) int {
 // 2014-10-17 guotie
 // TODO: rotate file logs
 func (fl *fileLogger) rotate() {
+	go func() {
+		left := fl.toNextRotateSeconds(time.Now())
+		log.Println("left second to timer:", left)
+		tmr := time.NewTimer(time.Duration(left) * time.Second)
+		for {
+			<-tmr.C
+			fl.rot <- struct{}{}
+
+			left = fl.toNextRotateSeconds(time.Now())
+			tmr.Reset(time.Duration(left) * time.Second)
+		}
+	}()
 
 	for {
 		select {
 		case <-fl.rot:
-			//log.Println("time is up, rotate ....")
+			log.Println("time is up, rotate ....")
 			fl.mu.Lock()
 			owr := fl.out.out
 			fl.closeLogFiles(owr, "rotate")
@@ -405,7 +417,7 @@ func (fl *fileLogger) rotate() {
 			fl.mu.Unlock()
 
 		case <-fl.exit:
-			//log.Println("file log exit ....")
+			log.Println("file log exit ....")
 			fl.mu.Lock()
 			owr := fl.out.out
 			fl.closeLogFiles(owr, "exit")
@@ -415,18 +427,6 @@ func (fl *fileLogger) rotate() {
 			return
 		}
 	}
-
-	go func() {
-		left := fl.toNextRotateSeconds(time.Now())
-		tmr := time.NewTimer(time.Duration(left) * time.Second)
-		for {
-			<-tmr.C
-			fl.rot <- struct{}{}
-
-			left = fl.toNextRotateSeconds(time.Now())
-			tmr.Reset(time.Duration(left) * time.Second)
-		}
-	}()
 }
 
 // mod: 关闭的方式
