@@ -199,12 +199,12 @@ func contactLog(logf, tmp string) {
 
 	buff := make([]byte, 256*1024)
 	for err != io.EOF {
-		_, err = tmpFile.Read(buff)
+		n, err := tmpFile.Read(buff)
 		if err != nil && err != io.EOF {
 			log.Printf("Read file %s failed: %s\n", tmp, err.Error())
 			return
 		}
-		file.Write(buff)
+		file.Write(buff[0:n])
 	}
 	//buff, _ := ioutil.ReadAll(tmpFile)
 	//file.Write(buff)
