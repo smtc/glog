@@ -198,8 +198,9 @@ func contactLog(logf, tmp string) {
 	defer tmpFile.Close()
 
 	buff := make([]byte, 256*1024)
+	n := 0
 	for err != io.EOF {
-		n, err := tmpFile.Read(buff)
+		n, err = tmpFile.Read(buff)
 		if err != nil && err != io.EOF {
 			log.Printf("Read file %s failed: %s\n", tmp, err.Error())
 			return
@@ -415,6 +416,7 @@ func (fl *fileLogger) rotate() {
 				fl.out.out = wr
 			}
 			fl.mu.Unlock()
+			log.Println("rotate successfully ....")
 
 		case <-fl.exit:
 			log.Println("file log exit ....")
