@@ -391,7 +391,7 @@ func (fl *fileLogger) toNextRotateSeconds(now time.Time) int {
 func (fl *fileLogger) rotate() {
 	go func() {
 		left := fl.toNextRotateSeconds(time.Now())
-		log.Println("left second to timer:", left)
+		//log.Println("left second to timer:", left)
 		tmr := time.NewTimer(time.Duration(left) * time.Second)
 		for {
 			<-tmr.C
