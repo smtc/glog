@@ -33,6 +33,7 @@ type logger interface {
 	Error(format string, v ...interface{})
 	Fatal(format string, v ...interface{})
 	Panic(format string, v ...interface{})
+	Flush()
 
 	Prefix(lv int) string
 	SetPrefix(lv int, prefix string)
@@ -161,4 +162,7 @@ func (c console) Panic(format string, v ...interface{}) {
 }
 
 func (c console) Close() {
+}
+
+func (c console) Flush() {
 }
