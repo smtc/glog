@@ -10,6 +10,7 @@ type logType int
 const (
 	DEV logType = iota
 	PRO
+	LOGNOTHING
 )
 const (
 	DebugLevel = iota
@@ -54,6 +55,8 @@ func InitLogger(level logType, options map[string]interface{}) {
 				PanicLevel: "PANIC",
 			},
 		}
+	} else if level == LOGNOTHING {
+		_logger = nullLog{}
 	} else {
 		if options == nil {
 			_logger = console{}
