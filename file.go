@@ -389,23 +389,27 @@ func (fl *fileLogger) toNextRotateSeconds(now time.Time) int {
 // 2014-10-17 guotie
 // TODO: rotate file logs
 func (fl *fileLogger) rotate() {
+	//tk := time.NewTicker(time.Second * time.Duration(maxCacheSeconds))
+	left := fl.toNextRotateSeconds(time.Now())
+	//log.Println("left second to timer:", left)
+	tmr := time.NewTimer(time.Duration(left) * time.Second)
 	go func() {
-		left := fl.toNextRotateSeconds(time.Now())
-		//log.Println("left second to timer:", left)
-		tmr := time.NewTimer(time.Duration(left) * time.Second)
 		for {
-			<-tmr.C
-			fl.rot <- struct{}{}
+			select {
+			case <-tmr.C:
+				fl.rot <- struct{}{}
 
-			left = fl.toNextRotateSeconds(time.Now())
-			tmr.Reset(time.Duration(left) * time.Second)
+				left = fl.toNextRotateSeconds(time.Now())
+				tmr.Reset(time.Duration(left) * time.Second)
+				//case <-tk.C:
+				//	fl.flush()
+			}
 		}
 	}()
 
 	for {
 		select {
 		case <-fl.rot:
-			log.Println("time is up, rotate ....")
 			fl.mu.Lock()
 			owr := fl.out.out
 			fl.closeLogFiles(owr, "rotate")
@@ -416,10 +420,11 @@ func (fl *fileLogger) rotate() {
 				fl.out.out = wr
 			}
 			fl.mu.Unlock()
-			log.Println("rotate successfully ....")
 
 		case <-fl.exit:
-			log.Println("file log exit ....")
+			//tk.Stop()
+			tmr.Stop()
+
 			fl.mu.Lock()
 			owr := fl.out.out
 			fl.closeLogFiles(owr, "exit")
