@@ -33,11 +33,16 @@ const (
 	Llongfile                     // full file name and line number: /a/b/c/d.go:23
 	Lshortfile                    // final file name element and line number: d.go:23. overrides Llongfile
 	LstdFlags     = Ldate | Ltime // initial values for the standard logger
+
+	maxCacheLength  = 8192
+	maxCacheSeconds = 2
 )
 
 type outputer struct {
 	prefix map[int]string
 	out    map[int]io.WriteCloser
+	// for performance
+	buf map[int][]byte
 }
 
 // A Logger represents an active logging object that generates lines of
@@ -140,6 +145,7 @@ func (l *Logger) Output(lv int, calldepth int, s string) error {
 		}
 		l.mu.Lock()
 	}
+
 	l.buf = l.buf[:0]
 	l.formatHeader(lv, &l.buf, now, file, line)
 	l.buf = append(l.buf, s...)
@@ -225,5 +231,29 @@ func (l *Logger) Close() {
 	defer l.mu.Unlock()
 	for i := DebugLevel; i < LevelCount; i++ {
 		l.out.out[i].Close()
+	}
+}
+
+// 写入文件中
+func (l *Logger) Flush() {
+}
+
+func (l *Logger) flush() {
+	l.mu.Lock()
+	for lv, bf := range l.out.buf {
+		if len(bf) > 0 {
+			l.out.Write(lv, bf)
+		}
+	}
+	l.mu.Unlock()
+}
+
+func (l *Logger) flushRoutine() {
+	tk := time.NewTicker(time.Second * time.Duration(maxCacheSeconds))
+	for {
+		select {
+		case <-tk.C:
+			l.flush()
+		}
 	}
 }
