@@ -83,6 +83,14 @@ func Flags() int {
 	return _logger.Flags()
 }
 
+func Level() int {
+	return _logger.Level()
+}
+
+func SetLevel(lv int) {
+	_logger.SetLevel(lv)
+}
+
 func SetFlags(flag int) {
 	_logger.SetFlags(flag)
 }
