@@ -19,6 +19,12 @@ func (c nullLog) Flags() int {
 func (c nullLog) SetFlags(flag int) {
 }
 
+func (c nullLog) Level() int {
+	return DebugLevel
+}
+func (c nullLog) SetLevel(level int) {
+}
+
 func (c nullLog) Debug(format string, v ...interface{}) {
 }
 

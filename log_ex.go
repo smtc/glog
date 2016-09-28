@@ -56,6 +56,7 @@ type Logger struct {
 	buf    []byte     // for accumulating text to write
 	items  int64
 	nbytes int64
+	level  int
 }
 
 // Cheap integer to fixed-width decimal ASCII.  Give a negative width to avoid zero-padding.
@@ -158,35 +159,54 @@ func (l *Logger) Output(lv int, calldepth int, s string) error {
 
 	return err
 }
+func (l *Logger) Level() int {
+	return l.level
+}
+
+func (l *Logger) SetLevel(level int) {
+	l.level = level
+}
 
 // Printf calls l.Output to print to the logger.
 // Arguments are handled in the manner of fmt.Printf.
 func (l *Logger) Debug(format string, v ...interface{}) {
-	l.Output(DebugLevel, 2, fmt.Sprintf(format, v...))
+	if DebugLevel >= l.level {
+		l.Output(DebugLevel, 2, fmt.Sprintf(format, v...))
+	}
 }
 
 func (l *Logger) Info(format string, v ...interface{}) {
-	l.Output(InfoLevel, 2, fmt.Sprintf(format, v...))
+	if InfoLevel >= l.level {
+		l.Output(InfoLevel, 2, fmt.Sprintf(format, v...))
+	}
 }
 
 func (l *Logger) Warn(format string, v ...interface{}) {
-	l.Output(WarnLevel, 2, fmt.Sprintf(format, v...))
+	if WarnLevel >= l.level {
+		l.Output(WarnLevel, 2, fmt.Sprintf(format, v...))
+	}
 }
 
 func (l *Logger) Error(format string, v ...interface{}) {
-	l.Output(ErrorLevel, 2, fmt.Sprintf(format, v...))
+	if ErrorLevel >= l.level {
+		l.Output(ErrorLevel, 2, fmt.Sprintf(format, v...))
+	}
 }
 
 // Fatal is equivalent to l.Print() followed by a call to os.Exit(1).
 func (l *Logger) Fatal(format string, v ...interface{}) {
-	l.Output(FatalLevel, 2, fmt.Sprintf(format, v...))
+	if FatalLevel >= l.level {
+		l.Output(FatalLevel, 2, fmt.Sprintf(format, v...))
+	}
 	os.Exit(1)
 }
 
 // Panicf is equivalent to l.Printf() followed by a call to panic().
 func (l *Logger) Panic(format string, v ...interface{}) {
 	s := fmt.Sprintf(format, v...)
-	l.Output(PanicLevel, 2, s)
+	if PanicLevel >= l.level {
+		l.Output(PanicLevel, 2, s)
+	}
 	panic(s)
 }
 

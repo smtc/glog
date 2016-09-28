@@ -41,6 +41,8 @@ type logger interface {
 	Flags() int
 	SetFlags(flag int)
 	Close()
+	Level() int
+	SetLevel(int)
 }
 
 func InitLogger(level logType, options map[string]interface{}) {
@@ -122,6 +124,7 @@ func Panic(format string, v ...interface{}) {
 // 为了简单，这里修改prefix时就不加锁了
 type console struct {
 	prefixes map[int]string
+	level    int
 }
 
 func (c console) Prefix(lv int) string {
@@ -138,6 +141,14 @@ func (c console) Flags() int {
 
 func (c console) SetFlags(flag int) {
 	log.SetFlags(flag)
+}
+
+func (c console) Level() int {
+	return DebugLevel
+}
+
+func (c console) SetLevel(level int) {
+	c.level = level
 }
 
 func (c console) Debug(format string, v ...interface{}) {
