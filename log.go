@@ -152,7 +152,7 @@ func (c console) SetFlags(flag int) {
 }
 
 func (c console) Level() int {
-	return DebugLevel
+	return c.level
 }
 
 func (c console) SetLevel(level int) {
