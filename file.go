@@ -415,7 +415,7 @@ func (fl *fileLogger) rotate() {
 			fl.closeLogFiles(owr, "rotate")
 			wr, err := fl.openLogFiles()
 			if err != nil {
-				fl.Error("rotate log files failed: %v\n", err)
+				log.Printf("rotate log files failed: %v\n", err)
 			} else {
 				fl.out.out = wr
 			}

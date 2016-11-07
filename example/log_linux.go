@@ -1,6 +1,7 @@
+// +build windows
+
 package main
 
-// +build windows
 import "github.com/smtc/glog"
 
 func logInit(debug bool) {
