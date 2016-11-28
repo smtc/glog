@@ -10,6 +10,17 @@ func TestLocal(t *testing.T) {
 	t.Log(tm.Zone())
 }
 
+func TestLevel(t *testing.T) {
+	InitLogger(DEV, nil)
+	SetLevel(WarnLevel)
+	if Level() != WarnLevel {
+		t.Fail()
+		t.Log(_logger.Level())
+		c := _logger.(*console)
+		t.Log(c.level)
+	}
+}
+
 func testConsoleLog(t *testing.T) {
 	InitLogger(DEV, nil)
 	Debug("this is a debug info\n")

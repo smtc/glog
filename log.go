@@ -24,7 +24,7 @@ const (
 
 var (
 	_              = fmt.Printf
-	_logger logger = console{}
+	_logger logger = &console{}
 )
 
 type logger interface {
@@ -46,7 +46,7 @@ type logger interface {
 	SetLevel(int)
 }
 
-func InitLogger(level logType, options map[string]interface{}) {
+func InitLogger(typ logType, options map[string]interface{}) {
 	prefixesMap := map[int]string{
 		DebugLevel: "DEBUG",
 		InfoLevel:  "INFO",
@@ -56,15 +56,15 @@ func InitLogger(level logType, options map[string]interface{}) {
 		PanicLevel: "PANIC",
 	}
 
-	if level == DEV {
-		_logger = console{
-			prefixes : prefixesMap,
+	if typ == DEV {
+		_logger = &console{
+			prefixes: prefixesMap,
 		}
-	} else if level == LOGNOTHING {
+	} else if typ == LOGNOTHING {
 		_logger = nullLog{}
 	} else {
 		if options == nil {
-			_logger = console{}
+			_logger = &console{}
 			return
 		}
 		switch options["typ"].(string) {
@@ -74,7 +74,7 @@ func InitLogger(level logType, options map[string]interface{}) {
 		//case "nsq":
 		//	_logger = createNsqLogger(options)
 		default:
-			_logger = console{}
+			_logger = &console{}
 		}
 	}
 }
@@ -157,60 +157,60 @@ type console struct {
 	level    int
 }
 
-func (c console) GetPrefix() map[int]string {
+func (c *console) GetPrefix() map[int]string {
 	return c.prefixes
 }
 
-func (c console) Prefix(lv int) string {
+func (c *console) Prefix(lv int) string {
 	return c.prefixes[lv]
 }
 
-func (c console) SetPrefix(lv int, prefix string) {
+func (c *console) SetPrefix(lv int, prefix string) {
 	c.prefixes[lv] = prefix
 }
 
-func (c console) Flags() int {
+func (c *console) Flags() int {
 	return log.Flags()
 }
 
-func (c console) SetFlags(flag int) {
+func (c *console) SetFlags(flag int) {
 	log.SetFlags(flag)
 }
 
-func (c console) Level() int {
+func (c *console) Level() int {
 	return c.level
 }
 
-func (c console) SetLevel(level int) {
+func (c *console) SetLevel(level int) {
 	c.level = level
 }
 
-func (c console) Debug(format string, v ...interface{}) {
+func (c *console) Debug(format string, v ...interface{}) {
 	log.Printf(c.prefixes[DebugLevel]+" "+format, v...)
 }
 
-func (c console) Info(format string, v ...interface{}) {
+func (c *console) Info(format string, v ...interface{}) {
 	log.Printf(c.prefixes[InfoLevel]+" "+format, v...)
 }
 
-func (c console) Warn(format string, v ...interface{}) {
+func (c *console) Warn(format string, v ...interface{}) {
 	log.Printf(c.prefixes[WarnLevel]+" "+format, v...)
 }
 
-func (c console) Error(format string, v ...interface{}) {
+func (c *console) Error(format string, v ...interface{}) {
 	log.Printf(c.prefixes[ErrorLevel]+" "+format, v...)
 }
 
-func (c console) Fatal(format string, v ...interface{}) {
+func (c *console) Fatal(format string, v ...interface{}) {
 	log.Fatalf(c.prefixes[FatalLevel]+" "+format, v...)
 }
 
-func (c console) Panic(format string, v ...interface{}) {
+func (c *console) Panic(format string, v ...interface{}) {
 	log.Panicf(c.prefixes[PanicLevel]+" "+format, v...)
 }
 
-func (c console) Close() {
+func (c *console) Close() {
 }
 
-func (c console) Flush() {
+func (c *console) Flush() {
 }
