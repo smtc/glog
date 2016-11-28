@@ -243,9 +243,7 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 
 	if dir, ok = options["dir"].(string); !ok {
 		dir = "./logs"
-	} else if dir == "" {
-		dir = "./"
-	}
+	} 
 
 	if duration, ok := options["duration"].(string); !ok {
 		duration = "day"
