@@ -224,6 +224,13 @@ func (l *Logger) SetFlags(flag int) {
 	l.flag = flag
 }
 
+// GetPrefix returns the output prefix
+func (l *Logger) GetPrefix()  map[int]string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.out.prefix
+}
+
 // Prefix returns the output prefix for the logger.
 func (l *Logger) Prefix(lv int) string {
 	l.mu.Lock()

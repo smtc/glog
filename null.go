@@ -5,6 +5,11 @@ package glog
 type nullLog struct {
 }
 
+
+func (c nullLog) GetPrefix()  map[int]string {
+	return nil
+}
+
 func (c nullLog) Prefix(lv int) string {
 	return ""
 }

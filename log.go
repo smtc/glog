@@ -36,6 +36,7 @@ type logger interface {
 	Panic(format string, v ...interface{})
 	Flush()
 
+	GetPrefix() map[int]string
 	Prefix(lv int) string
 	SetPrefix(lv int, prefix string)
 	Flags() int
@@ -46,16 +47,18 @@ type logger interface {
 }
 
 func InitLogger(level logType, options map[string]interface{}) {
+	prefixesMap := map[int]string{
+		DebugLevel: "DEBUG",
+		InfoLevel:  "INFO",
+		WarnLevel:  "WARN",
+		ErrorLevel: "ERROR",
+		FatalLevel: "FATAL",
+		PanicLevel: "PANIC",
+	}
+
 	if level == DEV {
 		_logger = console{
-			prefixes: map[int]string{
-				DebugLevel: "DEBUG",
-				InfoLevel:  "INFO",
-				WarnLevel:  "WARN",
-				ErrorLevel: "ERROR",
-				FatalLevel: "FATAL",
-				PanicLevel: "PANIC",
-			},
+			prefixes : prefixesMap,
 		}
 	} else if level == LOGNOTHING {
 		_logger = nullLog{}
@@ -66,6 +69,7 @@ func InitLogger(level logType, options map[string]interface{}) {
 		}
 		switch options["typ"].(string) {
 		case "file":
+			options["prefix"] = prefixesMap
 			_logger = createFileLogger(options)
 		//case "nsq":
 		//	_logger = createNsqLogger(options)
@@ -95,6 +99,11 @@ func SetFlags(flag int) {
 	_logger.SetFlags(flag)
 }
 
+// GetPrefix returns the output prefix
+func GetPrefix() map[int]string {
+	return _logger.GetPrefix()
+}
+
 // Prefix returns the output prefix for the standard logger.
 func Prefix(lv int) string {
 	return _logger.Prefix(lv)
@@ -106,33 +115,50 @@ func SetPrefix(lv int, prefix string) {
 }
 
 func Debug(format string, v ...interface{}) {
-	_logger.Debug(format, v...)
+	if DebugLevel >= Level() {
+		_logger.Debug(format, v...)
+	}
 }
 
 func Info(format string, v ...interface{}) {
-	_logger.Info(format, v...)
+	level := Level()
+	if InfoLevel >= level {
+		_logger.Info(format, v...)
+	}
 }
 
 func Warn(format string, v ...interface{}) {
-	_logger.Warn(format, v...)
+	if WarnLevel >= Level() {
+		_logger.Warn(format, v...)
+	}
 }
 
 func Error(format string, v ...interface{}) {
-	_logger.Error(format, v...)
+	if ErrorLevel >= Level() {
+		_logger.Error(format, v...)
+	}
 }
 
 func Fatal(format string, v ...interface{}) {
-	_logger.Fatal(format, v...)
+	if FatalLevel >= Level() {
+		_logger.Fatal(format, v...)
+	}
 }
 
 func Panic(format string, v ...interface{}) {
-	_logger.Panic(format, v...)
+	if PanicLevel >= Level() {
+		_logger.Panic(format, v...)
+	}
 }
 
 // 为了简单，这里修改prefix时就不加锁了
 type console struct {
 	prefixes map[int]string
 	level    int
+}
+
+func (c console) GetPrefix() map[int]string {
+	return c.prefixes
 }
 
 func (c console) Prefix(lv int) string {
