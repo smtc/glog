@@ -60,21 +60,27 @@ func InitLogger(typ logType, options map[string]interface{}) {
 		_logger = &console{
 			prefixes: prefixesMap,
 		}
+		log.SetFlags(log.LstdFlags)
 	} else if typ == LOGNOTHING {
 		_logger = nullLog{}
+		log.SetFlags(log.LstdFlags)
 	} else {
 		if options == nil {
 			_logger = &console{}
+			log.SetFlags(log.LstdFlags)
 			return
 		}
 		switch options["typ"].(string) {
 		case "file":
-			options["prefix"] = prefixesMap
+			if options["prefix"] == nil {
+				options["prefix"] = prefixesMap
+			}
 			_logger = createFileLogger(options)
 		//case "nsq":
 		//	_logger = createNsqLogger(options)
 		default:
 			_logger = &console{}
+			log.SetFlags(log.LstdFlags)
 		}
 	}
 }

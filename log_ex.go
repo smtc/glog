@@ -121,6 +121,7 @@ func (l *Logger) formatHeader(lv int, buf *[]byte, t time.Time, file string, lin
 		*buf = append(*buf, ": "...)
 	}
 	*buf = append(*buf, l.out.prefix[lv]...)
+	*buf = append(*buf, []byte(" ")...)
 }
 
 // Output writes the output for a logging event.  The string s contains
@@ -225,7 +226,7 @@ func (l *Logger) SetFlags(flag int) {
 }
 
 // GetPrefix returns the output prefix
-func (l *Logger) GetPrefix()  map[int]string {
+func (l *Logger) GetPrefix() map[int]string {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.out.prefix

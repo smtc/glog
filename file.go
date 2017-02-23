@@ -229,7 +229,7 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 		dir      string
 		fnSuffix string
 		prefix   map[int]string
-		duration string = "day" // 按天来rotate日志或按小时rotate日志
+		duration = "day" // 按天来rotate日志或按小时rotate日志
 	)
 
 	if flag, ok = options["flag"].(int); !ok {
@@ -243,7 +243,7 @@ func createFileLogger(options map[string]interface{}) *fileLogger {
 
 	if dir, ok = options["dir"].(string); !ok {
 		dir = "./logs"
-	} 
+	}
 
 	if duration, ok := options["duration"].(string); !ok {
 		duration = "day"
